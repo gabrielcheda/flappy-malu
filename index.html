@@ -279,7 +279,7 @@ class Player {
   }
 }
 
-class NoseObstacle {
+class FireObstacle {
   constructor(x) {
     this.x = x;
     this.width = 70;
@@ -287,75 +287,113 @@ class NoseObstacle {
     this.gapTop = Math.random() * (380 - this.gap) + 80;
     this.gapBottom = this.gapTop + this.gap;
     this.scored = false;
+    this.seed = Math.random() * 1000;
+    this.tick = 0;
   }
 
   update() {
     this.x -= 3;
+    this.tick += 1;
   }
 
-  drawNose(startX, startY, endY, nostrilSize) {
+  drawPillar(startX, startY, endY, flameDir) {
     ctx.save();
-    
-    const noseWidth = this.width;
-    const noseColor = '#C9967E';
-    const hairColor = '#2C1810';
-    
-    ctx.fillStyle = noseColor;
+
+    const grad = ctx.createLinearGradient(startX, 0, startX + this.width, 0);
+    grad.addColorStop(0, '#3a0000');
+    grad.addColorStop(0.4, '#a30000');
+    grad.addColorStop(0.55, '#ff3a0f');
+    grad.addColorStop(0.75, '#a30000');
+    grad.addColorStop(1, '#3a0000');
+
+    const segments = 10;
+    const segH = (endY - startY) / segments;
+
+    ctx.shadowColor = '#ff2a00';
+    ctx.shadowBlur = 22;
+    ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.moveTo(startX, startY);
-    ctx.lineTo(startX + noseWidth, startY);
-    ctx.lineTo(startX + noseWidth - 5, endY);
-    ctx.lineTo(startX + 5, endY);
+    for (let i = 0; i <= segments; i++) {
+      const y = startY + i * segH;
+      const jitter = Math.sin(this.seed + i * 1.7) * 5;
+      ctx.lineTo(startX + this.width + jitter, y);
+    }
+    for (let i = segments; i >= 0; i--) {
+      const y = startY + i * segH;
+      const jitter = Math.cos(this.seed + i * 1.3) * 5;
+      ctx.lineTo(startX - jitter, y);
+    }
     ctx.closePath();
     ctx.fill();
-    
-    ctx.strokeStyle = '#8B6F47';
+    ctx.shadowBlur = 0;
+
+    ctx.strokeStyle = '#ffae00';
     ctx.lineWidth = 2;
     ctx.stroke();
-    
-    for (let i = 0; i < noseWidth; i += 3) {
-      const hairLength = 8 + Math.sin(this.x * 0.05 + i) * 3;
-      const hairAngle = Math.random() * 0.8 - 0.4;
-      
-      ctx.strokeStyle = hairColor;
+
+    const crackCount = 4;
+    for (let c = 0; c < crackCount; c++) {
+      const cx = startX + ((c + 1) / (crackCount + 1)) * this.width;
+      ctx.strokeStyle = 'rgba(255, 220, 0, 0.8)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(startX + i, startY);
-      ctx.lineTo(startX + i + Math.cos(hairAngle) * hairLength, startY - hairLength);
+      ctx.moveTo(cx, startY + 6);
+      let y = startY + 6;
+      while (y < endY - 6) {
+        const dx = Math.sin(this.seed + c * 4.3 + y * 0.15) * 4;
+        y += 8;
+        ctx.lineTo(cx + dx, y);
+      }
       ctx.stroke();
     }
-    
-    for (let i = 0; i < noseWidth; i += 3) {
-      const hairLength = 8 + Math.sin(this.x * 0.05 + i) * 3;
-      const hairAngle = Math.random() * 0.8 - 0.4;
-      
-      ctx.strokeStyle = hairColor;
-      ctx.lineWidth = 2;
+
+    const t = this.tick * 0.25;
+    const baseY = flameDir > 0 ? endY : startY;
+    for (let i = -4; i < this.width + 4; i += 5) {
+      const h = 22 + Math.sin(t + i * 0.6 + this.seed) * 10 + Math.cos(t * 1.7 + i) * 4;
+      const tipX = startX + i + Math.sin(t + i * 0.3) * 2;
+      const tipY = baseY + flameDir * h;
+
+      ctx.fillStyle = '#ff2a00';
       ctx.beginPath();
-      ctx.moveTo(startX + i, endY);
-      ctx.lineTo(startX + i + Math.cos(hairAngle) * hairLength, endY + hairLength);
-      ctx.stroke();
+      ctx.moveTo(startX + i - 5, baseY);
+      ctx.quadraticCurveTo(tipX, baseY + flameDir * h * 0.4, tipX, tipY);
+      ctx.quadraticCurveTo(tipX, baseY + flameDir * h * 0.4, startX + i + 5, baseY);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#ffae00';
+      ctx.beginPath();
+      ctx.moveTo(startX + i - 3, baseY);
+      ctx.quadraticCurveTo(tipX, baseY + flameDir * h * 0.5, tipX, baseY + flameDir * h * 0.85);
+      ctx.quadraticCurveTo(tipX, baseY + flameDir * h * 0.5, startX + i + 3, baseY);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#fff4a0';
+      ctx.beginPath();
+      ctx.ellipse(tipX, baseY + flameDir * h * 0.35, 2, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
     }
-    
-    const nostrilX1 = startX + noseWidth * 0.25;
-    const nostrilX2 = startX + noseWidth * 0.75;
-    const nostrilY = startY + (endY - startY) * 0.6;
-    
-    ctx.fillStyle = '#1a1a1a';
-    ctx.beginPath();
-    ctx.ellipse(nostrilX1, nostrilY, nostrilSize, nostrilSize * 1.2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.beginPath();
-    ctx.ellipse(nostrilX2, nostrilY, nostrilSize, nostrilSize * 1.2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
+
+    for (let s = 0; s < 4; s++) {
+      const sparkX = startX + (Math.sin(t * 2 + s * 1.7 + this.seed) * 0.5 + 0.5) * this.width;
+      const sparkOffset = ((this.tick * 1.5 + s * 30) % 80);
+      const sparkY = baseY + flameDir * (8 + sparkOffset);
+      const alpha = Math.max(0, 1 - sparkOffset / 80);
+      ctx.fillStyle = `rgba(255, 200, 0, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(sparkX, sparkY, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.restore();
   }
 
   draw() {
-    this.drawNose(this.x, 0, this.gapTop, 3);
-    this.drawNose(this.x, this.gapBottom, canvas.height, 3);
+    this.drawPillar(this.x, 0, this.gapTop, 1);
+    this.drawPillar(this.x, this.gapBottom, canvas.height, -1);
   }
 
   offScreen() {
@@ -437,7 +475,7 @@ function update() {
   }
 
   if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < 250) {
-    obstacles.push(new NoseObstacle(canvas.width));
+    obstacles.push(new FireObstacle(canvas.width));
   }
 
   obstacles.forEach((obstacle) => {
