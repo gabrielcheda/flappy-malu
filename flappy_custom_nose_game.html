@@ -1,0 +1,535 @@
+<html>
+<head>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Arial', sans-serif; overflow: hidden; background: #f0f0f0; }
+
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.image-upload {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.image-upload h3 {
+  margin-bottom: 15px;
+  color: #333;
+}
+
+#imageInput {
+  padding: 10px;
+  border: 2px solid #4ecdc4;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.image-preview {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.image-preview img {
+  max-width: 100px;
+  max-height: 100px;
+  border-radius: 8px;
+  border: 2px solid #4ecdc4;
+}
+
+.game-container {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  height: 600px;
+  background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 100%);
+  margin: 0 auto;
+  border: 3px solid #333;
+  overflow: hidden;
+}
+
+#gameCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ui {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+}
+
+.score-display {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px 25px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  color: #333;
+  font-weight: bold;
+  font-size: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.best-display {
+  background: rgba(255, 215, 0, 0.95);
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 16px;
+  color: #333;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.game-over-screen {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.95);
+  color: white;
+  padding: 50px 40px;
+  border-radius: 20px;
+  text-align: center;
+  z-index: 20;
+  display: none;
+  min-width: 300px;
+  border: 3px solid #4ecdc4;
+  box-shadow: 0 0 30px rgba(78, 205, 196, 0.7);
+}
+
+.game-over-screen h2 {
+  font-size: 40px;
+  margin-bottom: 25px;
+  color: #4ecdc4;
+}
+
+.game-over-screen .score-result {
+  font-size: 28px;
+  margin: 20px 0;
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.game-over-screen .best-result {
+  font-size: 20px;
+  color: #4ecdc4;
+  margin-bottom: 30px;
+}
+
+.game-over-screen button {
+  background: linear-gradient(135deg, #4ecdc4, #95e1d3);
+  color: white;
+  border: none;
+  padding: 16px 40px;
+  font-size: 18px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.game-over-screen button:hover {
+  transform: scale(1.08);
+}
+
+.instructions {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.95);
+  padding: 20px 30px;
+  border-radius: 12px;
+  text-align: center;
+  color: #333;
+  font-size: 16px;
+  z-index: 10;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.instructions.hidden {
+  display: none;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="image-upload">
+    <h3>Suba uma imagem do seu boneco:</h3>
+    <input type="file" id="imageInput" accept="image/*">
+    <div class="image-preview" id="imagePreview"></div>
+  </div>
+</div>
+
+<div class="game-container">
+  <canvas id="gameCanvas" width="500" height="600"></canvas>
+  
+  <div class="ui">
+    <div class="score-display">PONTOS: <span id="score">0</span></div>
+    <div class="best-display">RECORDE: <span id="best">0</span></div>
+  </div>
+  
+  <div class="instructions" id="instructions">CLIQUE ou ESPAÇO para voar!</div>
+  
+  <div class="game-over-screen" id="gameOverScreen">
+    <h2>GAME OVER!</h2>
+    <div class="score-result">Você fez: <span id="finalScore">0</span></div>
+    <div class="best-result">Recorde: <span id="bestScore">0</span></div>
+    <button onclick="restartGame()">Jogar de Novo</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const imageInput = document.getElementById('imageInput');
+const imagePreview = document.getElementById('imagePreview');
+
+let playerImage = null;
+
+imageInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        playerImage = img;
+        
+        const preview = document.createElement('img');
+        preview.src = img.src;
+        imagePreview.innerHTML = '';
+        imagePreview.appendChild(preview);
+        
+        if (!gameStarted) {
+          draw();
+        }
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+});
+
+class Player {
+  constructor() {
+    this.x = 70;
+    this.y = 300;
+    this.width = 50;
+    this.height = 60;
+    this.velocity = 0;
+    this.gravity = 0.4;
+    this.jump = -9;
+    this.rotation = 0;
+  }
+
+  update() {
+    this.velocity += this.gravity;
+    this.velocity = Math.max(this.velocity, -5);
+    this.velocity = Math.min(this.velocity, 8);
+    this.y += this.velocity;
+    this.rotation = Math.min(this.velocity * 0.05, 0.3);
+  }
+
+  draw() {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+    
+    if (playerImage) {
+      ctx.drawImage(playerImage, -this.width/2, -this.height/2, this.width, this.height);
+    } else {
+      ctx.fillStyle = '#FDBCB4';
+      ctx.beginPath();
+      ctx.ellipse(0, -8, 16, 18, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(-8, -15, 6, 7, -0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(8, -15, 6, 7, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = '#5B7FB8';
+      ctx.beginPath();
+      ctx.moveTo(-16, -20);
+      ctx.bezierCurveTo(-20, -28, 0, -30, 16, -22);
+      ctx.lineTo(14, -16);
+      ctx.bezierCurveTo(0, -18, -14, -16, -14, -16);
+      ctx.closePath();
+      ctx.fill();
+      
+      ctx.fillStyle = '#4A6BA3';
+      ctx.beginPath();
+      ctx.moveTo(-14, -16);
+      ctx.lineTo(14, -16);
+      ctx.lineTo(16, -12);
+      ctx.lineTo(-16, -12);
+      ctx.closePath();
+      ctx.fill();
+      
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(-8, -6, 3, 4.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.ellipse(-8, -6, 1.5, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(8, -8, 3, 4.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.ellipse(8, -8, 1.5, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.ellipse(0, 5, 9, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      
+      ctx.fillStyle = '#E85A5F';
+      ctx.fillRect(-14, 12, 28, 20);
+    }
+    
+    ctx.restore();
+  }
+
+  flap() {
+    this.velocity = this.jump;
+  }
+}
+
+class NoseObstacle {
+  constructor(x) {
+    this.x = x;
+    this.width = 70;
+    this.gap = 180;
+    this.gapTop = Math.random() * (380 - this.gap) + 80;
+    this.gapBottom = this.gapTop + this.gap;
+    this.scored = false;
+  }
+
+  update() {
+    this.x -= 3;
+  }
+
+  drawNose(startX, startY, endY, nostrilSize) {
+    ctx.save();
+    
+    const noseWidth = this.width;
+    const noseColor = '#C9967E';
+    const hairColor = '#2C1810';
+    
+    ctx.fillStyle = noseColor;
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(startX + noseWidth, startY);
+    ctx.lineTo(startX + noseWidth - 5, endY);
+    ctx.lineTo(startX + 5, endY);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.strokeStyle = '#8B6F47';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    for (let i = 0; i < noseWidth; i += 3) {
+      const hairLength = 8 + Math.sin(this.x * 0.05 + i) * 3;
+      const hairAngle = Math.random() * 0.8 - 0.4;
+      
+      ctx.strokeStyle = hairColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(startX + i, startY);
+      ctx.lineTo(startX + i + Math.cos(hairAngle) * hairLength, startY - hairLength);
+      ctx.stroke();
+    }
+    
+    for (let i = 0; i < noseWidth; i += 3) {
+      const hairLength = 8 + Math.sin(this.x * 0.05 + i) * 3;
+      const hairAngle = Math.random() * 0.8 - 0.4;
+      
+      ctx.strokeStyle = hairColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(startX + i, endY);
+      ctx.lineTo(startX + i + Math.cos(hairAngle) * hairLength, endY + hairLength);
+      ctx.stroke();
+    }
+    
+    const nostrilX1 = startX + noseWidth * 0.25;
+    const nostrilX2 = startX + noseWidth * 0.75;
+    const nostrilY = startY + (endY - startY) * 0.6;
+    
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.ellipse(nostrilX1, nostrilY, nostrilSize, nostrilSize * 1.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.ellipse(nostrilX2, nostrilY, nostrilSize, nostrilSize * 1.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
+  }
+
+  draw() {
+    this.drawNose(this.x, 0, this.gapTop, 3);
+    this.drawNose(this.x, this.gapBottom, canvas.height, 3);
+  }
+
+  offScreen() {
+    return this.x + this.width < 0;
+  }
+
+  collidesWith(player) {
+    const padding = 8;
+    return !(player.y + padding > this.gapTop && player.y - padding < this.gapBottom) &&
+           player.x + player.width / 2 > this.x && player.x - player.width / 2 < this.x + this.width;
+  }
+}
+
+let player = new Player();
+let obstacles = [];
+let score = 0;
+let bestScore = localStorage.getItem('flappyCustomBest') || 0;
+let gameActive = false;
+let gameStarted = false;
+
+document.getElementById('best').textContent = bestScore;
+
+canvas.addEventListener('click', () => {
+  if (!gameStarted) {
+    startGame();
+  } else if (gameActive) {
+    player.flap();
+  } else {
+    restartGame();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (!gameStarted) {
+      startGame();
+    } else if (gameActive) {
+      player.flap();
+    } else {
+      restartGame();
+    }
+  }
+});
+
+function startGame() {
+  gameStarted = true;
+  gameActive = true;
+  score = 0;
+  player = new Player();
+  obstacles = [];
+  document.getElementById('instructions').classList.add('hidden');
+  update();
+}
+
+function restartGame() {
+  document.getElementById('gameOverScreen').style.display = 'none';
+  document.getElementById('instructions').classList.remove('hidden');
+  gameStarted = false;
+  gameActive = false;
+  obstacles = [];
+  draw();
+}
+
+function update() {
+  if (!gameActive) return;
+
+  player.update();
+
+  if (player.y + player.height / 2 > canvas.height || player.y - player.height / 2 < 0) {
+    endGame();
+    return;
+  }
+
+  if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < 250) {
+    obstacles.push(new NoseObstacle(canvas.width));
+  }
+
+  obstacles.forEach((obstacle) => {
+    obstacle.update();
+
+    if (obstacle.collidesWith(player)) {
+      endGame();
+      return;
+    }
+
+    if (!obstacle.scored && obstacle.x + obstacle.width < player.x) {
+      obstacle.scored = true;
+      score++;
+      document.getElementById('score').textContent = score;
+    }
+  });
+
+  obstacles = obstacles.filter(obs => !obs.offScreen());
+
+  draw();
+  requestAnimationFrame(update);
+}
+
+function draw() {
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  gradient.addColorStop(0, '#87CEEB');
+  gradient.addColorStop(1, '#E0F6FF');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+  for (let i = 0; i < 5; i++) {
+    ctx.fillRect(0, i * 120, canvas.width, 60);
+  }
+
+  obstacles.forEach(obs => obs.draw());
+
+  player.draw();
+}
+
+function endGame() {
+  gameActive = false;
+  
+  if (score > bestScore) {
+    bestScore = score;
+    localStorage.setItem('flappyCustomBest', bestScore);
+    document.getElementById('bestScore').textContent = bestScore;
+  }
+  
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('bestScore').textContent = bestScore;
+  document.getElementById('gameOverScreen').style.display = 'block';
+}
+
+draw();
+</script>
+
+</body>
+</html>
